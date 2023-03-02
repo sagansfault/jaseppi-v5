@@ -79,6 +79,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Here, we use lazy restartable sources to make sure that we don't pay
     // for decoding, playback on tracks which aren't actually live yet.
+    println!("{}", query);
     let source = match Restartable::ytdl(query, true).await {
         Ok(source) => source,
         Err(why) => {
