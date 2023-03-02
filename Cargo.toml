@@ -1,0 +1,20 @@
+[package]
+name = "jaseppi-v5"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = "0.11.14"
+
+[dependencies.serenity]
+default-features = false
+features = ["client", "standard_framework", "voice", "rustls_backend", "cache"]
+version = "0.11"
+
+[dependencies.songbird]
+version = "0.3.0"
+features = ["builtin-queue"]
+
+[dependencies.tokio]
+version = "1.26.0"
+features = ["full"]
