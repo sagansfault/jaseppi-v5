@@ -12,7 +12,7 @@ features = ["client", "standard_framework", "voice", "rustls_backend", "cache"]
 version = "0.11"
 
 [dependencies.songbird]
-version = "0.3.0"
+version = "0.2.2"
 features = ["builtin-queue"]
 
 [dependencies.tokio]
