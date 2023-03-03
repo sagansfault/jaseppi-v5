@@ -1,4 +1,6 @@
 use std::env;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use serenity::async_trait;
 use serenity::prelude::*;
@@ -11,12 +13,17 @@ mod voice;
 use crate::voice::*;
 
 #[group]
-#[commands(leave, play, skip)]
+#[commands(leave, play, skip, restart)]
 struct General;
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {}
+
+struct RestartTrack;
+impl TypeMapKey for RestartTrack {
+    type Value = Arc<AtomicBool>;
+}
 
 #[tokio::main]
 async fn main() {
@@ -32,6 +39,11 @@ async fn main() {
         .register_songbird()
         .await
         .expect("Error creating client");
+
+    {
+        let mut data = client.data.write().await;
+        data.insert::<RestartTrack>(Arc::new(AtomicBool::new(false)));
+    }
 
     if let Err(why) = client.start().await {
         println!("An error occurred while running the client: {:?}", why);

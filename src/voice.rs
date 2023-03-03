@@ -11,7 +11,31 @@ use serenity::{
     Result as SerenityResult,
 };
 
-use songbird::input::restartable::Restartable;
+use songbird::{
+    input::restartable::Restartable
+};
+
+use std::sync::atomic::Ordering;
+
+use crate::RestartTrack;
+
+#[command]
+#[only_in(guilds)]
+async fn restart(ctx: &Context, msg: &Message) -> CommandResult {
+    let val = {
+        let restart = {
+            let data_read = ctx.data.read().await;
+            data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
+        };
+        let b = restart.load(Ordering::SeqCst);
+        let flipped = !b;
+        restart.store(flipped, Ordering::SeqCst);
+        flipped
+    };
+    check_msg(msg.channel_id.say(&ctx.http, format!("restart: {}", val)).await);
+
+    Ok(())
+}
 
 #[command]
 #[only_in(guilds)]
@@ -79,7 +103,6 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Here, we use lazy restartable sources to make sure that we don't pay
     // for decoding, playback on tracks which aren't actually live yet.
-    println!("{}", query);
     let source = match Restartable::ytdl(query, true).await {
         Ok(source) => source,
         Err(why) => {
@@ -91,7 +114,17 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         },
     };
 
-    handler.enqueue_source(source.into());
+    let track_handle = handler.enqueue_source(source.into());
+
+    {
+        let restart = {
+            let data_read = ctx.data.read().await;
+            data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
+        };
+        if restart.load(std::sync::atomic::Ordering::SeqCst) {
+            let _result = track_handle.enable_loop();
+        }
+    }
 
     check_msg(
         msg.channel_id
