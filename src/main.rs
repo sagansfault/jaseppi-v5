@@ -13,15 +13,15 @@ mod voice;
 use crate::voice::*;
 
 #[group]
-#[commands(leave, play, skip, restart)]
+#[commands(leave, play, skip, repeat)]
 struct General;
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {}
 
-struct RestartTrack;
-impl TypeMapKey for RestartTrack {
+struct RepeatTrack;
+impl TypeMapKey for RepeatTrack {
     type Value = Arc<AtomicBool>;
 }
 
@@ -42,7 +42,7 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<RestartTrack>(Arc::new(AtomicBool::new(false)));
+        data.insert::<RepeatTrack>(Arc::new(AtomicBool::new(false)));
     }
 
     if let Err(why) = client.start().await {
