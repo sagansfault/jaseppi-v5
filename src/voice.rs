@@ -75,15 +75,18 @@ struct TrackEndNotifier {
 #[async_trait]
 impl VoiceEventHandler for TrackEndNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+        println!("event");
         if let EventContext::Track(track_list) = ctx {
+            println!("tracklist");
             if track_list.len() > 0 {
+                println!(">0");
                 let first = track_list[0].1;
-                {
-                    if self.restart.load(std::sync::atomic::Ordering::SeqCst) {
-                        let _result = first.enable_loop();
-                    } else {
-                        let _result = first.disable_loop();
-                    }
+                if self.restart.load(std::sync::atomic::Ordering::SeqCst) {
+                    println!("restart=true");
+                    let _result = first.enable_loop();
+                } else {
+                    println!("restart=false");
+                    let _result = first.disable_loop();
                 }
             }
         }
