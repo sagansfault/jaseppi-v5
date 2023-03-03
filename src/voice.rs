@@ -8,16 +8,12 @@ use serenity::{
         }
     },
     model::prelude::Message,
-    Result as SerenityResult, async_trait,
+    Result as SerenityResult,
 };
 
-use songbird::{
-    EventHandler as VoiceEventHandler, 
-    EventContext, 
-    Event, input::Restartable, TrackEvent,
-};
+use songbird::input::Restartable;
 
-use std::sync::{atomic::{Ordering, AtomicBool}, Arc};
+use std::sync::atomic::Ordering;
 
 use crate::RestartTrack;
 
