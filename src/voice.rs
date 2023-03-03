@@ -8,14 +8,16 @@ use serenity::{
         }
     },
     model::prelude::Message,
-    Result as SerenityResult,
+    Result as SerenityResult, async_trait,
 };
 
 use songbird::{
-    input::restartable::Restartable
+    EventHandler as VoiceEventHandler, 
+    EventContext, 
+    Event, input::Restartable, TrackEvent,
 };
 
-use std::sync::atomic::Ordering;
+use std::sync::{atomic::{Ordering, AtomicBool}, Arc};
 
 use crate::RestartTrack;
 
@@ -66,6 +68,29 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
+struct TrackEndNotifier {
+    restart: Arc<AtomicBool>
+}
+
+#[async_trait]
+impl VoiceEventHandler for TrackEndNotifier {
+    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+        if let EventContext::Track(track_list) = ctx {
+            if track_list.len() > 0 {
+                let first = track_list[0].1;
+                {
+                    if self.restart.load(std::sync::atomic::Ordering::SeqCst) {
+                        let _result = first.enable_loop();
+                    } else {
+                        let _result = first.disable_loop();
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[command]
 #[only_in(guilds)]
 async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -82,8 +107,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let connect_to = match channel_id {
         Some(channel) => channel,
         None => {
-            check_msg(msg.reply(ctx, "Not in a voice channel").await);
-
+            check_msg(msg.reply(ctx, "not in vc").await);
             return Ok(());
         },
     };
@@ -114,23 +138,20 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         },
     };
 
-    let track_handle = handler.enqueue_source(source.into());
+    let restart = {
+        let data_read = ctx.data.read().await;
+        data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
+    };
+    let restart = Arc::clone(&restart);
 
-    {
-        let restart = {
-            let data_read = ctx.data.read().await;
-            data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
-        };
-        if restart.load(std::sync::atomic::Ordering::SeqCst) {
-            let _result = track_handle.enable_loop();
-        }
-    }
+    let track_handle = handler.enqueue_source(source.into());
+    let _res = track_handle.add_event(Event::Track(TrackEvent::End), TrackEndNotifier { restart });
 
     check_msg(
         msg.channel_id
             .say(
                 &ctx.http,
-                format!("Added song to queue: position {}", handler.queue().len()),
+                format!("queued: #{}", handler.queue().len()),
             )
             .await,
     );
@@ -158,14 +179,14 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
             msg.channel_id
                 .say(
                     &ctx.http,
-                    format!("Song skipped: {} in queue.", queue.len()),
+                    format!("skipped: {} in queue.", queue.len()),
                 )
                 .await,
         );
     } else {
         check_msg(
             msg.channel_id
-                .say(&ctx.http, "Not in a voice channel to play in")
+                .say(&ctx.http, "not in vc")
                 .await,
         );
     }
