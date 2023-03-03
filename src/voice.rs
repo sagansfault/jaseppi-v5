@@ -73,9 +73,8 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
             );
         }
 
-        check_msg(msg.channel_id.say(&ctx.http, "Left voice channel").await);
     } else {
-        check_msg(msg.reply(ctx, "Not in a voice channel").await);
+        check_msg(msg.channel_id.say(&ctx.http, "not in vc").await);
     }
 
     Ok(())
@@ -114,6 +113,9 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     let mut handler = handle_lock.lock().await;
+    if handler.queue().is_empty() {
+        check_msg(msg.channel_id.say(&ctx.http, "sec").await);
+    }
 
     // Here, we use lazy restartable sources to make sure that we don't pay
     // for decoding, playback on tracks which aren't actually live yet.
@@ -131,14 +133,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     let _track_handle = handler.enqueue_source(source.into());
 
-    check_msg(
-        msg.channel_id
-            .say(
-                &ctx.http,
-                format!("queued: #{}", handler.queue().len()),
-            )
-            .await,
-    );
+    check_msg(msg.channel_id.say(&ctx.http, format!("queued: #{}", handler.queue().len())).await,);
 
     Ok(())
 }
@@ -159,20 +154,9 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
         let queue = handler.queue();
         let _ = queue.skip();
 
-        check_msg(
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("skipped: {} in queue.", queue.len()),
-                )
-                .await,
-        );
+        check_msg(msg.channel_id.say(&ctx.http, format!("skipped: {} in queue.", queue.len())).await);
     } else {
-        check_msg(
-            msg.channel_id
-                .say(&ctx.http, "not in vc")
-                .await,
-        );
+        check_msg(msg.channel_id.say(&ctx.http, "not in vc").await);
     }
 
     Ok(())
