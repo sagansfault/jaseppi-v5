@@ -24,17 +24,34 @@ use crate::RestartTrack;
 #[command]
 #[only_in(guilds)]
 async fn restart(ctx: &Context, msg: &Message) -> CommandResult {
-    let val = {
+    let restart = {
         let restart = {
             let data_read = ctx.data.read().await;
             data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
         };
         let b = restart.load(Ordering::SeqCst);
-        let flipped = !b;
+        let flipped = !b; // returns the previous value not the current one so I have to flip
         restart.store(flipped, Ordering::SeqCst);
         flipped
     };
-    check_msg(msg.channel_id.say(&ctx.http, format!("restart: {}", val)).await);
+    check_msg(msg.channel_id.say(&ctx.http, format!("restart: {}", restart)).await);
+
+    let guild = msg.guild(&ctx.cache).unwrap();
+    let guild_id = guild.id;
+    let manager = songbird::get(ctx)
+        .await
+        .expect("Songbird Voice client placed in at initialisation.")
+        .clone();
+    if let Some(handler) = manager.get(guild_id) {
+        let handler = handler.lock().await;
+        if let Some(current) = handler.queue().current() {
+            let _res = if restart {
+                current.enable_loop()
+            } else {
+                current.disable_loop()
+            };
+        }
+    }
 
     Ok(())
 }
@@ -66,32 +83,6 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     }
 
     Ok(())
-}
-
-struct TrackEndNotifier {
-    restart: Arc<AtomicBool>
-}
-
-#[async_trait]
-impl VoiceEventHandler for TrackEndNotifier {
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        println!("event");
-        if let EventContext::Track(track_list) = ctx {
-            println!("tracklist");
-            if track_list.len() > 0 {
-                println!(">0");
-                let first = track_list[0].1;
-                if self.restart.load(std::sync::atomic::Ordering::SeqCst) {
-                    println!("restart=true");
-                    let _result = first.enable_loop();
-                } else {
-                    println!("restart=false");
-                    let _result = first.disable_loop();
-                }
-            }
-        }
-        None
-    }
 }
 
 #[command]
@@ -141,14 +132,8 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         },
     };
 
-    let restart = {
-        let data_read = ctx.data.read().await;
-        data_read.get::<RestartTrack>().expect("Expected RestartTrack in TypeMap.").clone()
-    };
-    let restart = Arc::clone(&restart);
 
-    let track_handle = handler.enqueue_source(source.into());
-    let _res = track_handle.add_event(Event::Track(TrackEvent::End), TrackEndNotifier { restart });
+    let _track_handle = handler.enqueue_source(source.into());
 
     check_msg(
         msg.channel_id
