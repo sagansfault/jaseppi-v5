@@ -7,15 +7,14 @@ use serenity::{
             CommandResult,
         }
     },
-    model::prelude::Message,
-    Result as SerenityResult,
+    model::prelude::Message
 };
 
 use songbird::input::Restartable;
 
 use std::sync::atomic::Ordering;
 
-use crate::RepeatTrack;
+use crate::{RepeatTrack, check_msg};
 
 #[command]
 #[only_in(guilds)]
@@ -160,11 +159,4 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
     }
 
     Ok(())
-}
-
-/// Checks that a message successfully sent; if not, then logs why to stdout.
-fn check_msg(result: SerenityResult<Message>) {
-    if let Err(why) = result {
-        println!("Error sending message: {:?}", why);
-    }
 }

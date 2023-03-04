@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 reqwest = "0.11.14"
+ggstdl = { git = "https://github.com/sagansfault/ggstdl", branch = "main" }
 
 [dependencies.serenity]
 default-features = false
