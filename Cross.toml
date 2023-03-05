@@ -1,0 +1,10 @@
+[build]
+# pre-build = [
+#     "dpkg --add-architecture $CROSS_DEB_ARCH", 
+#     "ulimit -n 1024000",
+#     "apt-get update",
+#     "apt-get --assume-yes install libssl-dev:$CROSS_DEB_ARCH"
+# ]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH && apt-get -o Acquire::Queue-Mode=access update && apt-get --assume-yes install libssl-dev:$CROSS_DEB_ARCH"
+]
