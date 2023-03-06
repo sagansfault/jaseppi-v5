@@ -10,7 +10,7 @@ ggstdl = { git = "https://github.com/sagansfault/ggstdl", branch = "main" }
 [dependencies.serenity]
 default-features = false
 features = ["client", "standard_framework", "voice", "rustls_backend", "cache"]
-version = "0.11"
+version = "0.11.5"
 
 [dependencies.songbird]
 version = "0.2.2"
