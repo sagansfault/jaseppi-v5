@@ -106,6 +106,7 @@ async fn frames(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 .field("Recovery", move_found.recovery, true)
                 .field("On Block", move_found.onblock, true)
                 .field("Invuln", move_found.invuln, true)
+                .image(move_found.hitboxes)
         })
     }).await;
     check_msg(v);
