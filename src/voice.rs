@@ -12,25 +12,11 @@ use serenity::{
 
 use songbird::input::Restartable;
 
-use std::sync::atomic::Ordering;
-
-use crate::{RepeatTrack, check_msg};
+use crate::check_msg;
 
 #[command]
 #[only_in(guilds)]
 async fn repeat(ctx: &Context, msg: &Message) -> CommandResult {
-    let repeat = {
-        let repeat = {
-            let data_read = ctx.data.read().await;
-            data_read.get::<RepeatTrack>().expect("Expected RepeatTrack in TypeMap.").clone()
-        };
-        let b = repeat.load(Ordering::SeqCst);
-        let flipped = !b; // returns the previous value not the current one so I have to flip
-        repeat.store(flipped, Ordering::SeqCst);
-        flipped
-    };
-    check_msg(msg.channel_id.say(&ctx.http, format!("repeat: {}", repeat)).await);
-
     let guild = msg.guild(&ctx.cache).unwrap();
     let guild_id = guild.id;
     let manager = songbird::get(ctx)
@@ -40,11 +26,8 @@ async fn repeat(ctx: &Context, msg: &Message) -> CommandResult {
     if let Some(handler) = manager.get(guild_id) {
         let handler = handler.lock().await;
         if let Some(current) = handler.queue().current() {
-            let _res = if repeat {
-                current.enable_loop()
-            } else {
-                current.disable_loop()
-            };
+            let _ = current.enable_loop();
+            check_msg(msg.channel_id.say(&ctx.http, "Repeating current song").await);
         }
     }
 

@@ -1,8 +1,7 @@
 use std::env;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
-use ggstdl::Character;
+use ggstdl::{Character, GGSTDLData, GGSTDLError};
 use serenity::async_trait;
 use serenity::model::prelude::Message;
 use serenity::prelude::*;
@@ -23,14 +22,9 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {}
 
-struct RepeatTrack;
-impl TypeMapKey for RepeatTrack {
-    type Value = Arc<AtomicBool>;
-}
-
 struct GGSTDLCharacterData;
 impl TypeMapKey for GGSTDLCharacterData {
-    type Value = Arc<RwLock<Vec<Character>>>;
+    type Value = Arc<RwLock<GGSTDLData>>;
 }
 
 #[tokio::main]
@@ -50,10 +44,8 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<RepeatTrack>(Arc::new(AtomicBool::new(false)));
-
-        let chars = ggstdl::load().await.expect("Could not load ggstdl character data");
-        data.insert::<GGSTDLCharacterData>(Arc::new(RwLock::new(chars)));
+        let ggstdldata = ggstdl::load().await.expect("Could not load ggstdl character data");
+        data.insert::<GGSTDLCharacterData>(Arc::new(RwLock::new(ggstdldata)));
     }
 
     if let Err(why) = client.start().await {
@@ -82,25 +74,21 @@ async fn frames(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // want to drop the locks and refs asap so other threads can use it
     let move_found = {
         let data_read = ctx.data.read().await;
-        let char_data_lock = data_read.get::<GGSTDLCharacterData>().expect("No ggstdl character data in TypeMap").clone();
-        let char_data = char_data_lock.read().await;
+        let ggstdl_data_lock = data_read.get::<GGSTDLCharacterData>().expect("No ggstdl character data in TypeMap").clone();
+        let ggstdl_data = ggstdl_data_lock.read().await;
 
-        let character = char_data.iter().find(|c| c.regex.is_match(char_query.as_str()));
-
-        let Some(character) = character else {
-            check_msg(msg.channel_id.say(&ctx.http, "could not find character").await);
+        let res = ggstdl_data.find_move(char_query.as_str(), move_query);
+        let Ok(move_found) = res else {
+            let err_msg = match res.unwrap_err() {
+                GGSTDLError::UnknownCharacter => "could not find character",
+                GGSTDLError::UnknownMove => "could not find move",
+            };
+            check_msg(msg.channel_id.say(&ctx.http, err_msg).await);
             return Ok(());
         };
-
-        let move_found = character.moves.iter().find(|m| m.regex.is_match(move_query));
-        let Some(move_found) = move_found else {
-            check_msg(msg.channel_id.say(&ctx.http, "could not find move").await);
-            return Ok(());
-        };
-
         move_found.clone()
     };
-
+        
     let v = msg.channel_id.send_message(&ctx.http, |m| {
         m.embed(|e| {
             e.title(move_found.name)
