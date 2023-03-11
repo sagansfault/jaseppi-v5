@@ -91,7 +91,14 @@ async fn frames(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         
     let v = msg.channel_id.send_message(&ctx.http, |m| {
         m.embed(|e| {
-            e.title(move_found.name)
+            let title = {
+                if move_found.input.eq_ignore_ascii_case(&move_found.name) {
+                    move_found.input
+                } else {
+                    format!("{} ({})", move_found.name, move_found.input)
+                }
+            };
+            e.title(title)
                 .field("Damage", move_found.damage, true)
                 .field("Guard", move_found.guard, true)
                 .field("Startup", move_found.startup, true)
