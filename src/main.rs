@@ -1,7 +1,7 @@
 use std::env;
 use std::sync::Arc;
 
-use ggstdl::{Character, GGSTDLData, GGSTDLError};
+use ggstdl::{GGSTDLData, GGSTDLError};
 use serenity::async_trait;
 use serenity::model::prelude::Message;
 use serenity::prelude::*;
