@@ -15,7 +15,7 @@ mod voice;
 use crate::voice::*;
 
 #[group]
-#[commands(leave, play, skip, repeat, frames)]
+#[commands(leave, play, skip, repeat, fd)]
 struct General;
 struct Handler;
 
@@ -55,7 +55,7 @@ async fn main() {
 
 #[command]
 #[only_in(guilds)]
-async fn frames(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     if args.len() < 2 {
         check_msg(msg.channel_id.say(&ctx.http, ".frames <character> <move query>").await);
