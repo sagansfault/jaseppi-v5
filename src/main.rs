@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ggstdl::{GGSTDLData, GGSTDLError};
 use serenity::async_trait;
 use serenity::model::prelude::Message;
+use serenity::model::voice::VoiceState;
 use serenity::prelude::*;
 use serenity::framework::standard::macros::{group, command};
 use serenity::framework::standard::{StandardFramework, CommandResult, Args};
@@ -20,7 +21,31 @@ struct General;
 struct Handler;
 
 #[async_trait]
-impl EventHandler for Handler {}
+impl EventHandler for Handler {
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
+        if let Some(id) = old.map(|d| d.channel_id).flatten() {
+            if let Ok(channel) = id.to_channel(&ctx.http).await {
+                if let Ok(members) = channel.guild().unwrap().members(&ctx.cache).await {
+                    // just bot remaining
+                    if members.len() == 1 {
+                        for member in members {
+                            // not guaranteed to be this bot but whatever, good enough
+                            if member.user.bot {
+                                let manager = songbird::get(&ctx)
+                                    .await
+                                    .expect("Songbird Voice client placed in at initialisation.")
+                                    .clone();
+                                if let Some(guild_id) = new.guild_id {
+                                    let _ = manager.leave(guild_id).await;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 struct GGSTDLCharacterData;
 impl TypeMapKey for GGSTDLCharacterData {

@@ -28,6 +28,8 @@ async fn repeat(ctx: &Context, msg: &Message) -> CommandResult {
         if let Some(current) = handler.queue().current() {
             let _ = current.enable_loop();
             check_msg(msg.channel_id.say(&ctx.http, "Repeating current song").await);
+        } else {
+            check_msg(msg.channel_id.say(&ctx.http, "No songs queued (yet)").await);
         }
     }
 
