@@ -37,6 +37,11 @@ impl EventHandler for Handler {
                                     .clone();
                                 if let Some(guild_id) = new.guild_id {
                                     let _ = manager.leave(guild_id).await;
+                                    if let Some(handler) = manager.get(guild_id) {
+                                        let handler = handler.lock().await;
+                                        handler.queue().modify_queue(|q| q.clear());
+                                        let _ = handler.queue().skip();
+                                    }
                                 }
                             }
                         }
