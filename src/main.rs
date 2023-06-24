@@ -16,7 +16,7 @@ mod voice;
 use crate::voice::*;
 
 #[group]
-#[commands(leave, play, skip, repeat, fd)]
+#[commands(leave, play, skip, repeat, fd, say)]
 struct General;
 struct Handler;
 
@@ -85,19 +85,35 @@ async fn main() {
 
 #[command]
 #[only_in(guilds)]
+async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    if args.is_empty() {
+        check_msg(msg.channel_id.say(&ctx.http, ".say <message>").await);
+        return Ok(());
+    }
+
+    let to_say = args.rest();
+    if let Ok(_) = msg.delete(&ctx.http).await {
+        let _ = msg.channel_id.say(&ctx.http, to_say.clone()).await;
+    }
+
+    Ok(())
+}
+
+#[command]
+#[only_in(guilds)]
 async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     if args.len() < 2 {
-        check_msg(msg.channel_id.say(&ctx.http, ".frames <character> <move query>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
         return Ok(());
     }
 
     let Ok(char_query) = args.single::<String>() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".frames <character> <move query>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
         return Ok(());
     };
     let Some(move_query) = args.remains() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".frames <character> <move query>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
         return Ok(());
     };
 
