@@ -21,12 +21,12 @@ use crate::voice::*;
 struct General;
 struct Handler;
 
-const EIGHT_BALL_ANSWERS: [&str; 15] = [
-    "It is certain",    "Reply hazy, try again",    "Don’t count on it",
-    "It is decidedly so",	"Ask again later",  "My reply is no",
-    "Without a doubt",	"Better not tell you now",  "My sources say no",
-    "Yes definitely",	"Cannot predict now",   "Outlook not so good",
-    "You may rely on it",	"Concentrate and ask again",    "Very doubtful",
+const EIGHT_BALL_ANSWERS: [&str; 10] = [
+    "It is certain",    "Don’t count on it",
+    "It is decidedly so",	"My reply is no",
+    "Without a doubt",	"My sources say no",
+    "Yes definitely",	"Outlook not so good",
+    "You may rely on it",	"Very doubtful",
 ];
 
 #[async_trait]
