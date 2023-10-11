@@ -25,8 +25,8 @@ const EIGHT_BALL_ANSWERS: [&str; 10] = [
     "It is certain",    "Don’t count on it",
     "It is decidedly so",	"My reply is no",
     "Without a doubt",	"My sources say no",
-    "Yes definitely",	"Outlook not so good",
-    "You may rely on it",	"Very doubtful",
+    "Yes definitely",	"Likely not",
+    "Signs point to yes",	"Very doubtful",
 ];
 
 #[async_trait]
