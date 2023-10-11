@@ -2,6 +2,7 @@ use std::env;
 use std::sync::Arc;
 
 use ggstdl::{GGSTDLData, GGSTDLError};
+use rand::prelude::SliceRandom;
 use serenity::async_trait;
 use serenity::model::prelude::Message;
 use serenity::model::voice::VoiceState;
@@ -20,8 +21,25 @@ use crate::voice::*;
 struct General;
 struct Handler;
 
+const EIGHT_BALL_ANSWERS: [&str; 15] = [
+    "It is certain",    "Reply hazy, try again",    "Don’t count on it",
+    "It is decidedly so",	"Ask again later",  "My reply is no",
+    "Without a doubt",	"Better not tell you now",  "My sources say no",
+    "Yes definitely",	"Cannot predict now",   "Outlook not so good",
+    "You may rely on it",	"Concentrate and ask again",    "Very doubtful",
+];
+
 #[async_trait]
 impl EventHandler for Handler {
+    async fn message(&self, ctx: Context, msg: Message) {
+        if let Ok(true) = msg.mentions_me(&ctx.http).await {
+            if msg.content.ends_with("?") {
+                let text = EIGHT_BALL_ANSWERS.choose(&mut rand::thread_rng()).unwrap_or(&"idk");
+                check_msg(msg.channel_id.say(&ctx.http, text).await);
+            }
+        }
+    }
+
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         if let Some(id) = old.map(|d| d.channel_id).flatten() {
             if let Ok(channel) = id.to_channel(&ctx.http).await {
