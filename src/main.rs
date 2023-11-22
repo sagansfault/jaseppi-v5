@@ -111,7 +111,7 @@ async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     let to_say = args.rest();
     if let Ok(_) = msg.delete(&ctx.http).await {
-        let _ = msg.channel_id.say(&ctx.http, to_say.clone()).await;
+        let _ = msg.channel_id.say(&ctx.http, to_say).await;
     }
 
     Ok(())
