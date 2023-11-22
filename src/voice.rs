@@ -1,13 +1,7 @@
 use serenity::{
     client::Context,
-    framework::{
-        standard::{
-            macros::command,
-            Args,
-            CommandResult,
-        }
-    },
-    model::prelude::Message
+    framework::standard::{macros::command, Args, CommandResult},
+    model::prelude::Message,
 };
 
 use songbird::input::Restartable;
@@ -27,7 +21,11 @@ async fn repeat(ctx: &Context, msg: &Message) -> CommandResult {
         let handler = handler.lock().await;
         if let Some(current) = handler.queue().current() {
             let _ = current.enable_loop();
-            check_msg(msg.channel_id.say(&ctx.http, "Repeating current song").await);
+            check_msg(
+                msg.channel_id
+                    .say(&ctx.http, "Repeating current song")
+                    .await,
+            );
         } else {
             check_msg(msg.channel_id.say(&ctx.http, "No songs queued (yet)").await);
         }
@@ -56,7 +54,6 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
                     .await,
             );
         }
-
     } else {
         check_msg(msg.channel_id.say(&ctx.http, "not in vc").await);
     }
@@ -82,7 +79,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         None => {
             check_msg(msg.reply(ctx, "not in vc").await);
             return Ok(());
-        },
+        }
     };
 
     let manager = songbird::get(ctx)
@@ -111,13 +108,16 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             check_msg(msg.channel_id.say(&ctx.http, "Error sourcing ffmpeg").await);
 
             return Ok(());
-        },
+        }
     };
-
 
     let _track_handle = handler.enqueue_source(source.into());
 
-    check_msg(msg.channel_id.say(&ctx.http, format!("queued: #{}", handler.queue().len())).await,);
+    check_msg(
+        msg.channel_id
+            .say(&ctx.http, format!("queued: #{}", handler.queue().len()))
+            .await,
+    );
 
     Ok(())
 }
@@ -138,7 +138,11 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
         let queue = handler.queue();
         let _ = queue.skip();
 
-        check_msg(msg.channel_id.say(&ctx.http, format!("skipped: {} in queue.", queue.len())).await);
+        check_msg(
+            msg.channel_id
+                .say(&ctx.http, format!("skipped: {} in queue.", queue.len()))
+                .await,
+        );
     } else {
         check_msg(msg.channel_id.say(&ctx.http, "not in vc").await);
     }
