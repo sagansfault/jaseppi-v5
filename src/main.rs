@@ -33,7 +33,7 @@ const EIGHT_BALL_ANSWERS: [&str; 10] = [
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         if let Ok(true) = msg.mentions_me(&ctx.http).await {
-            if msg.content.ends_with("?") {
+            if msg.content.ends_with('?') {
                 let text = EIGHT_BALL_ANSWERS.choose(&mut rand::thread_rng()).unwrap_or(&"idk");
                 check_msg(msg.channel_id.say(&ctx.http, text).await);
             }
@@ -41,7 +41,7 @@ impl EventHandler for Handler {
     }
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        if let Some(id) = old.map(|d| d.channel_id).flatten() {
+        if let Some(id) = old.and_then(|d| d.channel_id) {
             if let Ok(channel) = id.to_channel(&ctx.http).await {
                 if let Ok(members) = channel.guild().unwrap().members(&ctx.cache).await {
                     // just bot remaining
@@ -110,7 +110,7 @@ async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     let to_say = args.rest();
-    if let Ok(_) = msg.delete(&ctx.http).await {
+    if (msg.delete(&ctx.http).await).is_ok() {
         let _ = msg.channel_id.say(&ctx.http, to_say).await;
     }
 

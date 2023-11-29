@@ -91,6 +91,8 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     if !query.starts_with("http") {
         query = format!("ytsearch:{}", query);
+    } else {
+        msg.suppress_embeds(&ctx.http);
     }
 
     let mut handler = handle_lock.lock().await;
@@ -111,11 +113,12 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         }
     };
 
-    let _track_handle = handler.enqueue_source(source.into());
+    let track_handle = handler.enqueue_source(source.into());
+    let url = track_handle.metadata().source_url.unwrap_or(String::from(""));
 
     check_msg(
         msg.channel_id
-            .say(&ctx.http, format!("queued: #{}", handler.queue().len()))
+            .say(&ctx.http, format!("queued: #{} {}", handler.queue().len(), url))
             .await,
     );
 
