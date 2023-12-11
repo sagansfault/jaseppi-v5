@@ -24,7 +24,7 @@ mod voice;
 use crate::voice::*;
 
 #[group]
-#[commands(leave, play, skip, repeat, fd, say, rating)]
+#[commands(leave, play, skip, repeat, fd, say, rating, matches)]
 struct General;
 struct Handler;
 
@@ -146,17 +146,17 @@ async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 #[only_in(guilds)]
-async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn matches(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     if args.len() < 2 {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <player> <character>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".matches <player> <character>").await);
         return Ok(());
     }
     let Ok(name_query) = args.single::<String>() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <player> <character>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".matches <player> <character>").await);
         return Ok(());
     };
     let Some(character_query) = args.remains() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <player> <character>").await);
+        check_msg(msg.channel_id.say(&ctx.http, ".matches <player> <character>").await);
         return Ok(());
     };
     let Some(character) = ruapi::character::get_character(character_query.to_string()) else {
@@ -164,7 +164,7 @@ async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         return Ok(());
     };
     let Ok(player_data) = ruapi::rating::player_lookup_character(&name_query, character).await else {
-        check_msg(msg.channel_id.say(&ctx.http, "Could not find player. Names must be exact.").await);
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find player, or player with that character. Names must be exact.").await);
         return Ok(());
     };
     let Ok(recent_games) = ruapi::rating::load_match_history_id(&player_data.id, character).await else {
@@ -177,6 +177,38 @@ async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                            player_data.character.deviation,
                            player_data.character.game_count,
                            table);
+    check_msg(msg.channel_id.say(&ctx.http, full_str).await);
+    return Ok(());
+}
+
+#[command]
+#[only_in(guilds)]
+async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    if args.len() < 2 {
+        check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
+        return Ok(());
+    }
+    let Ok(name_query) = args.single::<String>() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
+        return Ok(());
+    };
+    let Some(character_query) = args.remains() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
+        return Ok(());
+    };
+    let Some(character) = ruapi::character::get_character(character_query.to_string()) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find character").await);
+        return Ok(());
+    };
+    let Ok(player_data) = ruapi::rating::player_lookup_character(&name_query, character).await else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find player, or player with that character. Names must be exact.").await);
+        return Ok(());
+    };
+    let full_str = format!("```{} Rating: {} ± {} ({} games)```",
+        name_query,
+        player_data.character.rating,
+        player_data.character.deviation,
+        player_data.character.game_count);
     check_msg(msg.channel_id.say(&ctx.http, full_str).await);
     return Ok(());
 }
