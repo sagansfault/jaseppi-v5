@@ -204,7 +204,7 @@ async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         check_msg(msg.channel_id.say(&ctx.http, "Could not find player, or player with that character. Names must be exact.").await);
         return Ok(());
     };
-    let full_str = format!("```{} Rating: {} ± {} ({} games)```",
+    let full_str = format!("```{}'s rating: {} ± {} ({} games)```",
         name_query,
         player_data.character.rating,
         player_data.character.deviation,
