@@ -5,15 +5,24 @@ edition = "2021"
 
 [dependencies]
 ggstdl = { git = "https://github.com/sagansfault/ggstdl", branch = "main" }
+ruapi = { git = "https://github.com/sagansfault/ruapi", branch = "main" }
+ascii_table = "4.0.3"
+reqwest = "0.11.22"
+regex = "1.10.2"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
 
 [dependencies.serenity]
-default-features = false
-features = ["client", "standard_framework", "voice", "rustls_backend", "cache", "model"]
-version = "0.11.5"
+features = ["client", "standard_framework", "voice", "rustls_backend", "cache", "model", "builder", "http"]
+version = "0.12.0"
 
 [dependencies.songbird]
-version = "0.3.0"
-features = ["builtin-queue", "yt-dlp"]
+version = "0.4.0"
+features = ["builtin-queue"] 
+
+[dependencies.symphonia]
+features = ["aac", "mp3", "isomp4", "alac"]
+version = "0.5.2"
 
 [dependencies.tokio]
 version = "1.26.0"
