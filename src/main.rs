@@ -188,10 +188,14 @@ async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
         return Ok(());
     }
-    let Ok(name_query) = args.single::<String>() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
-        return Ok(());
-    };
+
+    // grab all args up until the last one. (some names have spaces)
+    let mut name_query: Vec<String> = vec![];
+    for _ in 0..(args.len() - 1) {
+        name_query.push(args.single::<String>().unwrap());
+    }
+    let name_query = name_query.join(" ");
+
     let Some(character_query) = args.remains() else {
         check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
         return Ok(());
