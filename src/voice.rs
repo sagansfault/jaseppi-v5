@@ -1,9 +1,9 @@
 use serenity::{
+    builder::EditMessage,
     client::Context,
-    framework::standard::{macros::command, Args, CommandResult},
-    model::prelude::Message, builder::EditMessage,
+    framework::standard::{Args, CommandResult, macros::command}, model::prelude::Message,
 };
-use songbird::input::{YoutubeDl, Compose};
+use songbird::input::{Compose, YoutubeDl};
 
 use crate::{check_msg, get_http_client};
 

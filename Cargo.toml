@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ggstdl = { git = "https://github.com/sagansfault/ggstdl", branch = "main" }
 ruapi = { git = "https://github.com/sagansfault/ruapi", branch = "main" }
+refresher = { git = "https://github.com/sagansfault/refresher", branch = "main" }
 ascii_table = "4.0.3"
 reqwest = "0.11.22"
 regex = "1.10.2"

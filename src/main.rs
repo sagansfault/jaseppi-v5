@@ -1,30 +1,29 @@
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
-use ascii_table::{Align, AsciiTable};
 
+use ascii_table::{Align, AsciiTable};
 use ggstdl::{GGSTDLData, GGSTDLError};
 use rand::prelude::SliceRandom;
-use serenity::async_trait;
-use serenity::builder::{CreateMessage, CreateEmbed};
-use serenity::model::prelude::Message;
-use serenity::model::voice::VoiceState;
-use serenity::prelude::*;
-use serenity::framework::standard::macros::{group, command};
-use serenity::framework::standard::{StandardFramework, CommandResult, Args, Configuration};
-use serenity::Result as SerenityResult;
-
-use songbird::SerenityInit;
-
 use reqwest::Client as HttpClient;
 use ruapi::rating::RecentGame;
 use serenity::all::standard::macros::hook;
-
-mod voice;
+use serenity::async_trait;
+use serenity::builder::{CreateEmbed, CreateMessage};
+use serenity::framework::standard::{Args, CommandResult, Configuration, StandardFramework};
+use serenity::framework::standard::macros::{command, group};
+use serenity::model::prelude::Message;
+use serenity::model::voice::VoiceState;
+use serenity::prelude::*;
+use serenity::Result as SerenityResult;
+use songbird::SerenityInit;
 
 use crate::voice::*;
 
+mod voice;
+
 #[group]
-#[commands(leave, play, skip, repeat, fd, say, rating, matches)]
+#[commands(leave, play, skip, repeat, fd, hb, say, rating, matches, mu, mudata, tierlist)]
 struct General;
 struct Handler;
 
@@ -137,10 +136,140 @@ async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     let to_say = args.rest();
-    if (msg.delete(&ctx.http).await).is_ok() {
+    if msg.delete(&ctx.http).await.is_ok() {
         let _ = msg.channel_id.say(&ctx.http, to_say).await;
     }
 
+    Ok(())
+}
+
+#[command]
+#[only_in(guilds)]
+async fn tierlist(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    let Ok(matchups) = ruapi::matchup::load_matchups(ruapi::matchup::MatchupChart::TopHundred).await else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not load matchups").await);
+        return Ok(());
+    };
+    let mut tierlist: Vec<(String, f64)> = vec![];
+    for (character, mus) in matchups.matchups {
+        let count = mus.len() as f64;
+        let sum = mus.values().sum::<f64>();
+        let avg_winrate = sum / count;
+        tierlist.push((character.readablename.clone(), avg_winrate));
+    }
+    tierlist.sort_by(|(_, b), (_, d)| b.partial_cmp(d).unwrap());
+    tierlist.reverse();
+    let tierlist = tierlist.into_iter()
+        .enumerate()
+        .map(|(ind, (c, f))| format!("{}. {} ({:.1}%)", ind + 1, c, f))
+        .collect::<Vec<String>>()
+        .join("\n");
+    check_msg(msg.channel_id.say(&ctx.http, format!("```Tierlist from average winrates:\n{}```", tierlist)).await);
+    Ok(())
+}
+
+#[command]
+#[only_in(guilds)]
+async fn mudata(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    if args.is_empty() {
+        check_msg(msg.channel_id.say(&ctx.http, ".mudata <character>").await);
+        return Ok(());
+    }
+    let Ok(character) = args.single::<String>() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".mudata <character>").await);
+        return Ok(());
+    };
+    let Some(character) = ruapi::character::get_character_regex(character) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find character").await);
+        return Ok(());
+    };
+    let Ok(matchups) = ruapi::matchup::load_matchups(ruapi::matchup::MatchupChart::TopHundred).await else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not load matchups").await);
+        return Ok(());
+    };
+    let Some(winrates) = matchups.matchups.get(character) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find character winrates").await);
+        return Ok(());
+    };
+    let s = get_mu_data(winrates);
+    check_msg(msg.channel_id.say(&ctx.http, s).await);
+    Ok(())
+}
+
+fn get_mu_data(winrates: &HashMap<&ruapi::character::Character, f64>) -> String {
+    let mut winrate_sum = 0.0;
+    let mut winrate_count = 0.0;
+    let mut winning_sum = 0.0;
+    let mut winning_count = 0.0;
+    let mut losing_sum = 0.0;
+    let mut losing_count = 0.0;
+    let mut most_winning_versus: Option<String> = None;
+    let mut most_winning = 50.0;
+    let mut most_losing_versus: Option<String> = None;
+    let mut most_losing = 50.0;
+    for (char, winrate) in winrates {
+        let winrate = *winrate;
+        winrate_sum += winrate;
+        winrate_count += 1.0;
+        if winrate > 50.0 {
+            winning_sum += winrate;
+            winning_count += 1.0;
+        } else if winrate < 50.0 {
+            losing_sum += winrate;
+            losing_count += 1.0;
+        }
+        if winrate > most_winning {
+            most_winning = winrate;
+            most_winning_versus = Some(char.shortname.clone());
+        }
+        if winrate < most_losing {
+            most_losing = winrate;
+            most_losing_versus = Some(char.shortname.clone());
+        }
+    }
+    format!(
+        "```Avg Winrate: {:.2}%\nWinning MUs: {} ({}% avg)\nMost Winning: {} ({}%)\nLosing MUs: {} ({}% avg)\nMost Losing: {} ({}%)```",
+        (winrate_sum / winrate_count) as usize,
+        winning_count as usize, (winning_sum / winning_count) as usize,
+        most_winning_versus.unwrap_or("None".to_string()), most_winning,
+        losing_count as usize, (losing_sum / losing_count) as usize,
+        most_losing_versus.unwrap_or("None".to_string()), most_losing
+    )
+}
+
+#[command]
+#[only_in(guilds)]
+async fn mu(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    if args.len() < 2 {
+        check_msg(msg.channel_id.say(&ctx.http, ".mu <character> <versus>").await);
+        return Ok(());
+    }
+    let Ok(character) = args.single::<String>() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".mu <character> <versus>").await);
+        return Ok(());
+    };
+    let Ok(versus) = args.single::<String>() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".mu <character> <versus>").await);
+        return Ok(());
+    };
+    let Some(character) = ruapi::character::get_character_regex(character) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find character").await);
+        return Ok(());
+    };
+    let Some(versus) = ruapi::character::get_character_regex(versus) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find versus character").await);
+        return Ok(());
+    };
+    let Ok(matchups) = ruapi::matchup::load_matchups(ruapi::matchup::MatchupChart::TopHundred).await else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not load matchups").await);
+        return Ok(());
+    };
+    let Some(matchup) = matchups.get_matchup(character, versus) else {
+        check_msg(msg.channel_id.say(&ctx.http, "Could not find matchup").await);
+        return Ok(());
+    };
+    let formatted = format!("{} vs {}: {}%", character.shortname, versus.shortname, matchup);
+    check_msg(msg.channel_id.say(&ctx.http, formatted).await);
     Ok(())
 }
 
@@ -159,7 +288,7 @@ async fn matches(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         check_msg(msg.channel_id.say(&ctx.http, ".matches <player> <character>").await);
         return Ok(());
     };
-    let Some(character) = ruapi::character::get_character(character_query.to_string()) else {
+    let Some(character) = ruapi::character::get_character_regex(character_query.to_string()) else {
         check_msg(msg.channel_id.say(&ctx.http, "Could not find character").await);
         return Ok(());
     };
@@ -200,7 +329,7 @@ async fn rating(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         check_msg(msg.channel_id.say(&ctx.http, ".rating <player> <character>").await);
         return Ok(());
     };
-    let Some(character) = ruapi::character::get_character(character_query.to_string()) else {
+    let Some(character) = ruapi::character::get_character_regex(character_query.to_string()) else {
         check_msg(msg.channel_id.say(&ctx.http, "Could not find character").await);
         return Ok(());
     };
@@ -238,6 +367,49 @@ fn get_table_template() -> AsciiTable {
     table.column(5).set_header("Result").set_align(Align::Center);
     table.column(6).set_header("Change").set_align(Align::Center);
     table
+}
+
+#[command]
+#[only_in(guilds)]
+async fn hb(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    if args.len() < 2 {
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
+        return Ok(());
+    }
+
+    let Ok(char_query) = args.single::<String>() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
+        return Ok(());
+    };
+    let Some(move_query) = args.remains() else {
+        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
+        return Ok(());
+    };
+
+    // want to drop the locks and refs asap so other threads can use it
+    let move_found = {
+        let data_read = ctx.data.read().await;
+        let ggstdl_data_lock = data_read.get::<GGSTDLCharacterData>().expect("No ggstdl character data in TypeMap").clone();
+        let ggstdl_data = ggstdl_data_lock.read().await;
+
+        let res = ggstdl_data.find_move(char_query.as_str(), move_query);
+        let Ok(move_found) = res else {
+            let err_msg = match res.unwrap_err() {
+                GGSTDLError::UnknownCharacter => "could not find character",
+                GGSTDLError::UnknownMove => "could not find move",
+            };
+            check_msg(msg.channel_id.say(&ctx.http, err_msg).await);
+            return Ok(());
+        };
+        move_found.clone()
+    };
+    let text = if move_found.hitboxes.is_empty() {
+        String::from("none")
+    } else {
+        move_found.hitboxes.join(" \n ")
+    };
+    check_msg(msg.channel_id.say(&ctx.http, text).await);
+    Ok(())
 }
 
 #[command]
@@ -283,7 +455,7 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 format!("{} ({})", move_found.name, move_found.input)
             }
         };
-        CreateEmbed::new()
+        let mut em = CreateEmbed::new()
             .title(title)
             .field("Damage", move_found.damage, true)
             .field("Guard", move_found.guard, true)
@@ -291,8 +463,11 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             .field("Active", move_found.active, true)
             .field("Recovery", move_found.recovery, true)
             .field("On Block", move_found.onblock, true)
-            .field("Invuln", move_found.invuln, true)
-            .image(move_found.hitboxes)
+            .field("Invuln", move_found.invuln, true);
+        if let Some(first) = move_found.hitboxes.first() {
+            em = em.image(first);
+        }
+        em
     };
     let builder = CreateMessage::new().embed(embed);
     let v = msg.channel_id.send_message(&ctx.http, builder).await;
