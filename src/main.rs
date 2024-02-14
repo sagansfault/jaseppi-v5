@@ -23,7 +23,7 @@ use crate::voice::*;
 mod voice;
 
 #[group]
-#[commands(leave, play, skip, repeat, fd, hb, say, rating, matches, mu, mudata, tierlist)]
+#[commands(leave, play, skip, repeat, fd, say, rating, matches, mu, mudata, tierlist)]
 struct General;
 struct Handler;
 
@@ -371,49 +371,6 @@ fn get_table_template() -> AsciiTable {
 
 #[command]
 #[only_in(guilds)]
-async fn hb(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    if args.len() < 2 {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
-        return Ok(());
-    }
-
-    let Ok(char_query) = args.single::<String>() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
-        return Ok(());
-    };
-    let Some(move_query) = args.remains() else {
-        check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
-        return Ok(());
-    };
-
-    // want to drop the locks and refs asap so other threads can use it
-    let move_found = {
-        let data_read = ctx.data.read().await;
-        let ggstdl_data_lock = data_read.get::<GGSTDLCharacterData>().expect("No ggstdl character data in TypeMap").clone();
-        let ggstdl_data = ggstdl_data_lock.read().await;
-
-        let res = ggstdl_data.find_move(char_query.as_str(), move_query);
-        let Ok(move_found) = res else {
-            let err_msg = match res.unwrap_err() {
-                GGSTDLError::UnknownCharacter => "could not find character",
-                GGSTDLError::UnknownMove => "could not find move",
-            };
-            check_msg(msg.channel_id.say(&ctx.http, err_msg).await);
-            return Ok(());
-        };
-        move_found.clone()
-    };
-    let text = if move_found.hitboxes.is_empty() {
-        String::from("none")
-    } else {
-        move_found.hitboxes.join(" \n ")
-    };
-    check_msg(msg.channel_id.say(&ctx.http, text).await);
-    Ok(())
-}
-
-#[command]
-#[only_in(guilds)]
 async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     if args.len() < 2 {
         check_msg(msg.channel_id.say(&ctx.http, ".fd <character> <move query>").await);
@@ -447,6 +404,8 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         move_found.clone()
     };
 
+    let url = move_found.hitboxes.first().map(|s| s.as_str()).unwrap_or("https://www.dustloop.com/w/GGST");
+    let mut builder = CreateMessage::new();
     let embed = {
         let title = {
             if move_found.input.eq_ignore_ascii_case(&move_found.name) {
@@ -455,21 +414,21 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 format!("{} ({})", move_found.name, move_found.input)
             }
         };
-        let mut em = CreateEmbed::new()
+        CreateEmbed::new()
             .title(title)
+            .url(url)
             .field("Damage", move_found.damage, true)
             .field("Guard", move_found.guard, true)
             .field("Startup", move_found.startup, true)
             .field("Active", move_found.active, true)
             .field("Recovery", move_found.recovery, true)
             .field("On Block", move_found.onblock, true)
-            .field("Invuln", move_found.invuln, true);
-        if let Some(first) = move_found.hitboxes.first() {
-            em = em.image(first);
-        }
-        em
+            .field("Invuln", move_found.invuln, true)
     };
-    let builder = CreateMessage::new().embed(embed);
+    builder = builder.embed(embed);
+    for hitbox in &move_found.hitboxes {
+        builder = builder.add_embed(CreateEmbed::new().image(hitbox).url(url));
+    }
     let v = msg.channel_id.send_message(&ctx.http, builder).await;
     check_msg(v);
 
