@@ -9,6 +9,7 @@
   <component name="ChangeListManager">
     <list default="true" id="840caa09-8d82-493f-b129-b1fd85419a2f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -44,7 +45,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/camja/Coding/Rust/refresher&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/camja/Coding/Rust/sf6sc&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -93,7 +94,13 @@
       <workItem from="1707794371810" duration="18000" />
       <workItem from="1707794606686" duration="14000" />
       <workItem from="1707796886649" duration="1591000" />
-      <workItem from="1707871351617" duration="2103000" />
+      <workItem from="1707871351617" duration="2387000" />
+      <workItem from="1707973826065" duration="35000" />
+      <workItem from="1707974208013" duration="906000" />
+      <workItem from="1710747277242" duration="242000" />
+      <workItem from="1710830834256" duration="135000" />
+      <workItem from="1710885508544" duration="2094000" />
+      <workItem from="1711411853390" duration="413000" />
     </task>
     <servers />
   </component>

@@ -3,10 +3,11 @@ use std::env;
 use std::sync::Arc;
 
 use ascii_table::{Align, AsciiTable};
-use ggstdl::{GGSTDLData, GGSTDLError};
+use ggstdl::{GGSTDLData, Move};
 use rand::prelude::SliceRandom;
 use reqwest::Client as HttpClient;
 use ruapi::rating::RecentGame;
+use serenity::all::CreateEmbedFooter;
 use serenity::all::standard::macros::hook;
 use serenity::async_trait;
 use serenity::builder::{CreateEmbed, CreateMessage};
@@ -16,6 +17,7 @@ use serenity::model::prelude::Message;
 use serenity::model::voice::VoiceState;
 use serenity::prelude::*;
 use serenity::Result as SerenityResult;
+use sf6sc::SuperComboData;
 use songbird::SerenityInit;
 
 use crate::voice::*;
@@ -23,7 +25,7 @@ use crate::voice::*;
 mod voice;
 
 #[group]
-#[commands(leave, play, skip, repeat, fd, say, rating, matches, mu, mudata, tierlist)]
+#[commands(leave, play, skip, repeat, fd, say, rating, matches, mu, mudata)]
 struct General;
 struct Handler;
 
@@ -93,6 +95,10 @@ struct GGSTDLCharacterData;
 impl TypeMapKey for GGSTDLCharacterData {
     type Value = Arc<RwLock<GGSTDLData>>;
 }
+struct SCData;
+impl TypeMapKey for SCData {
+    type Value = Arc<RwLock<SuperComboData>>;
+}
 
 #[tokio::main]
 async fn main() {
@@ -113,6 +119,8 @@ async fn main() {
         let mut data = client.data.write().await;
         let ggstdldata = ggstdl::load().await.expect("Could not load ggstdl character data");
         data.insert::<GGSTDLCharacterData>(Arc::new(RwLock::new(ggstdldata)));
+        let scdata = sf6sc::load_supercombo_data().await;
+        data.insert::<SCData>(Arc::new(RwLock::new(scdata)));
     }
 
     if let Err(why) = client.start().await {
@@ -140,31 +148,6 @@ async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let _ = msg.channel_id.say(&ctx.http, to_say).await;
     }
 
-    Ok(())
-}
-
-#[command]
-#[only_in(guilds)]
-async fn tierlist(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
-    let Ok(matchups) = ruapi::matchup::load_matchups(ruapi::matchup::MatchupChart::TopHundred).await else {
-        check_msg(msg.channel_id.say(&ctx.http, "Could not load matchups").await);
-        return Ok(());
-    };
-    let mut tierlist: Vec<(String, f64)> = vec![];
-    for (character, mus) in matchups.matchups {
-        let count = mus.len() as f64;
-        let sum = mus.values().sum::<f64>();
-        let avg_winrate = sum / count;
-        tierlist.push((character.readablename.clone(), avg_winrate));
-    }
-    tierlist.sort_by(|(_, b), (_, d)| b.partial_cmp(d).unwrap());
-    tierlist.reverse();
-    let tierlist = tierlist.into_iter()
-        .enumerate()
-        .map(|(ind, (c, f))| format!("{}. {} ({:.1}%)", ind + 1, c, f))
-        .collect::<Vec<String>>()
-        .join("\n");
-    check_msg(msg.channel_id.say(&ctx.http, format!("```Tierlist from average winrates:\n{}```", tierlist)).await);
     Ok(())
 }
 
@@ -391,22 +374,35 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let data_read = ctx.data.read().await;
         let ggstdl_data_lock = data_read.get::<GGSTDLCharacterData>().expect("No ggstdl character data in TypeMap").clone();
         let ggstdl_data = ggstdl_data_lock.read().await;
-
-        let res = ggstdl_data.find_move(char_query.as_str(), move_query);
-        let Ok(move_found) = res else {
-            let err_msg = match res.unwrap_err() {
-                GGSTDLError::UnknownCharacter => "could not find character",
-                GGSTDLError::UnknownMove => "could not find move",
-            };
-            check_msg(msg.channel_id.say(&ctx.http, err_msg).await);
-            return Ok(());
+        ggstdl_data.find_move(char_query.as_str(), move_query).ok().cloned()
+    };
+    let builder = if let Some(move_found) = move_found {
+        handle_ggst_move(move_found)
+    } else {
+        let move_found = {
+            let data_read = ctx.data.read().await;
+            let scdata_data_lock = data_read.get::<SCData>().expect("No sf6sc character data in TypeMap").clone();
+            let scdata = scdata_data_lock.read().await;
+            scdata.get_character_move_by_input(char_query.as_str(), move_query).cloned()
         };
-        move_found.clone()
+        if let Some(move_found) = move_found {
+            handle_sf_move(move_found)
+        } else {
+            check_msg(msg.channel_id.say(&ctx.http, "Could not find GGST/SF6 move").await);
+            return Ok(());
+        }
     };
 
+    let v = msg.channel_id.send_message(&ctx.http, builder).await;
+    check_msg(v);
+
+    Ok(())
+}
+
+fn handle_ggst_move(move_found: Move) -> CreateMessage {
     let url = move_found.hitboxes.first().map(|s| s.as_str()).unwrap_or("https://www.dustloop.com/w/GGST");
     let mut builder = CreateMessage::new();
-    let embed = {
+    let mut embed = {
         let title = {
             if move_found.input.eq_ignore_ascii_case(&move_found.name) {
                 move_found.input
@@ -425,14 +421,46 @@ async fn fd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             .field("On Block", move_found.onblock, true)
             .field("Invuln", move_found.invuln, true)
     };
-    builder = builder.embed(embed);
-    for hitbox in &move_found.hitboxes {
-        builder = builder.add_embed(CreateEmbed::new().image(hitbox).url(url));
+    if move_found.hitboxes.len() == 1 {
+        embed = embed.image(move_found.hitboxes.first().unwrap());
+        builder = builder.embed(embed);
+    } else {
+        builder = builder.embed(embed);
+        for hitbox in &move_found.hitboxes {
+            builder = builder.add_embed(CreateEmbed::new().image(hitbox).url(url));
+        }
     }
-    let v = msg.channel_id.send_message(&ctx.http, builder).await;
-    check_msg(v);
+    builder
+}
 
-    Ok(())
+fn handle_sf_move(move_found: sf6sc::character::Move) -> CreateMessage {
+    let mut builder = CreateMessage::new();
+    let embed = {
+        let title = {
+            if move_found.input.eq_ignore_ascii_case(&move_found.name) {
+                move_found.input
+            } else {
+                format!("{} ({})", move_found.name, move_found.input)
+            }
+        };
+        CreateEmbed::new()
+            .title(title)
+            .url(move_found.hitbox_image_url.clone())
+            .field("Damage", move_found.damage, true)
+            .field("Guard", move_found.guard, true)
+            .field("Cancel", move_found.cancel, true)
+            .field("Startup", move_found.startup, true)
+            .field("Active", move_found.active, true)
+            .field("Recovery", move_found.recovery, true)
+            .field("On Block", move_found.on_block, true)
+            .field("On Hit", move_found.on_hit, true)
+            .field("Armour", move_found.armour, true)
+            .field("Invuln", move_found.invuln, true)
+            .image(move_found.hitbox_image_url)
+            .footer(CreateEmbedFooter::new(move_found.notes))
+    };
+    builder = builder.add_embed(embed);
+    builder
 }
 
 // Checks that a message successfully sent; if not, then logs why to stdout.
