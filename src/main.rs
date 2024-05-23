@@ -65,7 +65,8 @@ async fn main() {
         .options(poise::FrameworkOptions {
             commands: vec![
                 say(),
-                sf6::sf6(), ggst::ggst(),
+                sf6::sf6(), sf6::sf6reload(),
+                ggst::ggst(),
                 voice::leave(), voice::skip(), voice::play(), voice::repeat()
             ],
             prefix_options: PrefixFrameworkOptions {
