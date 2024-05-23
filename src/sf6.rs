@@ -4,7 +4,19 @@ use serenity::all::{AutocompleteChoice, CreateEmbed, CreateEmbedFooter};
 
 use crate::{Context, Error, LazyLock};
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, prefix_command)]
+pub async fn sf6reload(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    ctx.say("Reloading SF6 Data...").await?;
+    let new_data = sf6rs::framedata::load_all().await;
+    let mut guard = ctx.data().sf6.write().await;
+    *guard = new_data;
+    ctx.say("Reloaded").await?;
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
 pub async fn sf6(
     ctx: Context<'_>,
     #[autocomplete = "autocomplete_sf6_character"]
