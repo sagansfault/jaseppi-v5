@@ -3,7 +3,7 @@ use std::env;
 use ggstdl::GGSTDLData;
 use poise::{PrefixFrameworkOptions, serenity_prelude};
 use reqwest::Client as HttpClient;
-use serenity::all::VoiceState;
+use serenity::all::{GuildId, VoiceState};
 use serenity::async_trait;
 use serenity::prelude::*;
 use sf6rs::framedata::FrameData;
@@ -76,6 +76,7 @@ async fn main() {
             ..Default::default()
         }).setup(|ctx, _ready, framework| {
             Box::pin(async move {
+                poise::builtins::register_in_guild(ctx, &framework.options().commands, GuildId::new(466452910197440514)).await?;
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
                 let sf6 = sf6rs::framedata::load_all().await;

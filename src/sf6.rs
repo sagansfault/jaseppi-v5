@@ -4,7 +4,7 @@ use serenity::all::{AutocompleteChoice, CreateEmbed, CreateEmbedFooter};
 
 use crate::{Context, Error, LazyLock};
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 pub async fn sf6gif(
     ctx: Context<'_>,
     #[autocomplete = "autocomplete_sf6_character"]
@@ -130,6 +130,6 @@ async fn autocomplete_sf6_gif(
     };
     character_frame_data.gifs.iter()
         .filter(|m| m.name.to_lowercase().contains(partial))
-        .map(|m| m.url.to_string())
+        .map(|m| m.name.to_string())
         .collect::<Vec<String>>()
 }
