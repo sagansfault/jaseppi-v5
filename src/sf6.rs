@@ -5,6 +5,25 @@ use serenity::all::{AutocompleteChoice, CreateEmbed, CreateEmbedFooter};
 use crate::{Context, Error, LazyLock};
 
 #[poise::command(slash_command, prefix_command)]
+pub async fn sf6gif(
+    ctx: Context<'_>,
+    #[autocomplete = "autocomplete_sf6_character"]
+    character_query: String,
+    #[autocomplete = "autocomplete_sf6_gif"]
+    move_query: String,
+) -> Result<(), Error> {
+    let guard = ctx.data().sf6.read().await;
+    let result = guard.find_gif(&character_query, &move_query);
+    if let Err(e) = result {
+        ctx.say(format!("{:?}", e)).await?;
+        return Ok(());
+    };
+    let gif = result.unwrap().clone();
+    ctx.say(gif.url.to_string()).await?;
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
 pub async fn sf6reload(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
@@ -89,4 +108,28 @@ async fn autocomplete_sf6_move(
         .filter(|m| m.identifier.to_lowercase().contains(partial) || m.name.to_lowercase().contains(partial))
         .map(|m| AutocompleteChoice::new(format!("{} ({})", m.name, m.identifier), m.identifier.to_string()))
         .collect::<Vec<AutocompleteChoice>>()
+}
+
+async fn autocomplete_sf6_gif(
+    ctx: Context<'_>,
+    partial: &str,
+) -> Vec<String> {
+    let partial = &partial.to_lowercase();
+
+    let invocation_string = ctx.invocation_string();
+    let option = CHARACTER_ID_MATCHER.captures(&invocation_string).and_then(|c| c.get(1)).map(|c| c.as_str());
+    let Some(character_query) = option else {
+        return vec![];
+    };
+    let character_query = &character_query.to_lowercase();
+    let frame_datas = &ctx.data().sf6.read().await.character_frame_data;
+    let character_frame_data_opt = frame_datas.iter()
+        .find(|c| c.character_id.id.to_lowercase().eq(character_query));
+    let Some(character_frame_data) = character_frame_data_opt else {
+        return  vec![];
+    };
+    character_frame_data.gifs.iter()
+        .filter(|m| m.name.to_lowercase().contains(partial))
+        .map(|m| m.url.to_string())
+        .collect::<Vec<String>>()
 }
